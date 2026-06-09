@@ -1,0 +1,48 @@
+version: "3.9"
+
+# ─── MailTub — self-hosted disposable email ───────────────────────────────────
+# Usage:
+#   docker compose up -d
+#
+# Access the web UI at http://localhost:8080
+# SMTP receiver listens on port 2525 (or configure SMTP_PORT)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  mailtub:
+    build: .
+    container_name: mailtub
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+      - "${SMTP_PORT:-2525}:2525"
+    volumes:
+      - mailtub_data:/data
+    environment:
+      PORT: "8080"
+      SMTP_PORT: "2525"
+      MAILTUB_DOMAIN: "${MAILTUB_DOMAIN:-localhost}"
+      DATABASE_PATH: "/data/mailtub.db"
+      MAILBOX_TTL: "${MAILBOX_TTL:-24h}"
+      REDIS_URL: "${REDIS_URL:-}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
+      APP_VERSION: "${APP_VERSION:-v1.0.0}"
+      SMTP_STARTTLS: "${SMTP_STARTTLS:-false}"
+      TLS_CERT_FILE: "${TLS_CERT_FILE:-}"
+      TLS_KEY_FILE: "${TLS_KEY_FILE:-}"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mailtub.rule=Host(`${DOMAIN:-mailtub.localhost}`)"
+      - "traefik.http.routers.mailtub.entrypoints=websecure"
+      - "traefik.http.routers.mailtub.tls.certresolver=letsencrypt"
+
+volumes:
+  mailtub_data:
+    driver: local

@@ -1,0 +1,25 @@
+FROM gcr.io/distroless/static:nonroot
+
+WORKDIR /app
+COPY mailtub /app/mailtub
+
+VOLUME ["/data"]
+
+EXPOSE 8080
+EXPOSE 2525
+
+LABEL org.opencontainers.image.title="MailTub"
+LABEL org.opencontainers.image.description="Self-hosted disposable email service"
+LABEL org.opencontainers.image.url="https://github.com/dml-labs/mailtub"
+LABEL org.opencontainers.image.source="https://github.com/dml-labs/mailtub"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.vendor="DML Labs"
+
+ENV PORT=8080 \
+    SMTP_PORT=2525 \
+    DATABASE_PATH=/data/mailtub.db \
+    MAILTUB_DOMAIN=localhost \
+    LOG_LEVEL=info \
+    APP_VERSION=v1.0.0
+
+ENTRYPOINT ["/app/mailtub"]

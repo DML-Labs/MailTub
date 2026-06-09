@@ -1,0 +1,15 @@
+bin/
+data/
+web/node_modules/
+web/dist/
+.git/
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+tmp/
+.air.toml
+*.log
+.DS_Store
+Thumbs.db

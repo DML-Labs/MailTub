@@ -1,0 +1,40 @@
+# Build artefacts
+bin/
+web/dist/
+web/node_modules/
+
+# Data
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Environment
+.env
+.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air (hot reload)
+tmp/
+.air.toml
+
+# Logs
+*.log
+
+# Generated Windows resource (goversioninfo)
+resource.syso
+
+# Replit
+.replit
+.cache/
+.local/
+attached_assets/

@@ -1,0 +1,96 @@
+---
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: "Run as snapshot (no publish)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+# One release job per tag at a time.
+# If a run is already in progress for the same tag, the new one waits.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  goreleaser:
+    name: GoReleaser
+    runs-on: ubuntu-latest
+
+    env:
+      HAS_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "stable"
+          cache: true
+
+      - name: Setup QEMU (multi-platform Docker)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Import GPG key (optional)
+        if: ${{ env.HAS_GPG_KEY == 'true' }}
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Resolve GoReleaser args
+        id: goreleaser_args
+        run: |
+          IS_TAG=$( [[ "${GITHUB_REF}" == refs/tags/* ]] && echo "true" || echo "false" )
+          SNAPSHOT_INPUT="${{ github.event.inputs.snapshot }}"
+
+          if [[ "$IS_TAG" == "true" && "$SNAPSHOT_INPUT" != "true" ]]; then
+            EXTRA_ARGS=""
+          else
+            EXTRA_ARGS="--snapshot --skip=docker"
+          fi
+
+          if [[ "${{ env.HAS_GPG_KEY }}" != "true" ]]; then
+            EXTRA_ARGS="$EXTRA_ARGS --skip=sign"
+          fi
+
+          echo "args=release --clean $EXTRA_ARGS" >> "$GITHUB_OUTPUT"
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: ${{ steps.goreleaser_args.outputs.args }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}

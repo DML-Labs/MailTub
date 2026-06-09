@@ -1,0 +1,148 @@
+---
+# GoReleaser configuration for MailTub
+# https://goreleaser.com/customization/
+#
+# Usage:
+#   goreleaser release --clean          # full release
+#   goreleaser build --snapshot --clean # local test build
+
+version: 2
+
+project_name: mailtub
+
+before:
+  hooks:
+    # Build the React frontend before embedding in the Go binary
+    - sh -c 'cd web && npm install -g pnpm@latest --quiet && pnpm install --frozen-lockfile && pnpm run build'
+    # Generate Windows resource file with real release version baked in
+    - bash scripts/gen-winres.sh {{ .Version }}
+
+builds:
+  - id: mailtub
+    binary: mailtub
+    main: ./cmd/mailtub
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -buildvcs=false
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - id: mailtub
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: ["zip"]
+    files:
+      - src: README.md
+      - src: LICENSE
+      - src: CHANGELOG.md
+        info:
+          owner: root
+          group: root
+      - src: .env.example
+        info:
+          owner: root
+          group: root
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+signs:
+  - artifacts: checksum
+    args:
+      [
+        "--batch",
+        "-u",
+        "{{ .Env.GPG_FINGERPRINT }}",
+        "--output",
+        "${signature}",
+        "--detach-sign",
+        "${artifact}",
+      ]
+
+dockers:
+  - use: buildx
+    goos: linux
+    goarch: amd64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
+      - "ghcr.io/dml-labs/mailtub:{{ .Version }}-amd64"
+      - "ghcr.io/dml-labs/mailtub:latest-amd64"
+    build_flag_templates:
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+      - "--label=org.opencontainers.image.source=https://github.com/dml-labs/mailtub"
+  - use: buildx
+    goos: linux
+    goarch: arm64
+    dockerfile: Dockerfile.goreleaser
+    image_templates:
+      - "ghcr.io/dml-labs/mailtub:{{ .Version }}-arm64"
+      - "ghcr.io/dml-labs/mailtub:latest-arm64"
+    build_flag_templates:
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.title={{ .ProjectName }}"
+      - "--label=org.opencontainers.image.version={{ .Version }}"
+      - "--label=org.opencontainers.image.created={{ .Date }}"
+      - "--label=org.opencontainers.image.revision={{ .Commit }}"
+      - "--label=org.opencontainers.image.source=https://github.com/dml-labs/mailtub"
+
+docker_manifests:
+  - name_template: "ghcr.io/dml-labs/mailtub:{{ .Version }}"
+    image_templates:
+      - "ghcr.io/dml-labs/mailtub:{{ .Version }}-amd64"
+      - "ghcr.io/dml-labs/mailtub:{{ .Version }}-arm64"
+  - name_template: "ghcr.io/dml-labs/mailtub:latest"
+    image_templates:
+      - "ghcr.io/dml-labs/mailtub:latest-amd64"
+      - "ghcr.io/dml-labs/mailtub:latest-arm64"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: dml-labs
+    name: mailtub
+  name_template: "MailTub {{ .Version }}"
+  draft: false
+  prerelease: auto
+  replace_existing_artifacts: true
+  header: |
+    ## MailTub {{ .Version }}
+
+    Developed by [DML Labs](https://github.com/dml-labs) —
+    Founder & Lead Engineer: [@Devmayank-official](https://github.com/Devmayank-official)
+
+    **Docker:**
+    ```bash
+    docker pull ghcr.io/dml-labs/mailtub:{{ .Version }}
+    docker run -p 8080:8080 -p 2525:2525 -v mailtub-data:/data ghcr.io/dml-labs/mailtub:{{ .Version }}
+    ```

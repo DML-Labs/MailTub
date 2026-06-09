@@ -1,0 +1,36 @@
+# Normalize line endings to LF on checkout
+* text=auto eol=lf
+
+# Go source
+*.go text eol=lf
+
+# Web source
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.jsx  text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+
+# Binaries — do not diff or convert
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+
+# Treat dist/ output as generated (diff as binary)
+web/dist/** binary
+
+# Go module files
+go.sum linguist-generated=true
+
+# pnpm lockfile
+pnpm-lock.yaml linguist-generated=true
